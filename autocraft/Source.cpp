@@ -43,15 +43,17 @@ int main()
     if (!jsonStr.empty()) 
     {
         json data = json::parse(jsonStr);
-        cout<<data.dump(4);
+        //cout<<data.dump(4);
         
         std::string snapshot = data["latest"]["snapshot"];
         std::string release = data["latest"]["release"];
         std::string urlSnapshot;
         std::string urlRelease;
+        std::string urlSnapshotServer;
+        std::string urlReleaseServer;
 
         cout << snapshot << endl;
-        cout << release << endl;
+        cout << release << endl<<endl;
 
         std::string searchId = snapshot;
         std::string searchType = "snapshot";
@@ -74,14 +76,18 @@ int main()
         }
 
         cout << urlSnapshot << endl;
-        cout << urlRelease << endl;
+        cout << urlRelease << endl<<endl;
 
+        std::string jsonStrSnap = GetWebPageContent(urlSnapshot);
+        std::string jsonStrRel = GetWebPageContent(urlRelease);
 
+        json dataSnap = json::parse(jsonStrSnap);
+        json dataRel = json::parse(jsonStrRel);
 
-
-
-
-
+        urlSnapshotServer = dataSnap["downloads"]["server"]["url"];
+        urlReleaseServer = dataRel["downloads"]["server"]["url"];
+        cout <<endl<< urlSnapshotServer<<endl;
+        cout <<urlReleaseServer<<endl<<endl;
     }
     else 
     {
