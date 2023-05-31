@@ -237,7 +237,7 @@ std::map<std::string, std::string> LoadConfig(const std::string& filename) {
         configData["release_version"] = "none";
     }
     if (configData.find("timeout_second") == configData.end()) {
-        configData["timeout_second"] = "15";
+        configData["timeout_second"] = "30";
     }
     if (configData.find("run_server") == configData.end()) {
         configData["run_server"] = "true";
@@ -270,7 +270,7 @@ void SaveConfig(const std::string& filename, const std::map<std::string, std::st
         configFile.close(); // Uzavøít konfiguraèní soubor
     }
     else {
-        std::cout << "Nepodaøilo se otevøít konfiguraèní soubor pro zápis." << std::endl;
+        std::cout << "The settings file is not currently created." << std::endl;
     }
 }
 
@@ -434,7 +434,7 @@ void MainLoop() {
                 std::cout << "\nAutomatic execution of the """ << configData["type_server"] << """ version is currently in progress.\n" << std::endl;
                 if (configData["type_server"] == "snapshot")
                 {
-                    nam = "\u00a7f" + configData["server_name"] + "\u00a78 - \u00a77 Snapshot server\u00a7f " + snapshotVersion;
+                    nam = "\u00a7f" + configData["server_name"] + "\u00a78-\u00a77Snapshot server " + snapshotVersion;
                     cmd = "cd snapshot && java -Xms"+configData["xms"]+" -Xmx"+configData["xmx"]+" -jar "+snapshotVersion+".jar nogui";
                     if (!fileExists("snapshot\\eula.txt"))
                     {
@@ -512,7 +512,7 @@ void MainLoop() {
                 }
                 else
                 {
-                    nam = "\u00a7f" + configData["server_name"] + "\u00a78 - \u00a77 Release server\u00a7f " + releaseVersion;
+                    nam = "\u00a7f" + configData["server_name"] + "\u00a78-\u00a77Release server " + releaseVersion;
                     cmd = "cd release && java -Xms" + configData["xms"] + " -Xmx" + configData["xmx"] + " -jar " + releaseVersion + ".jar nogui";
                     if (!fileExists("release\\eula.txt"))
                     {
