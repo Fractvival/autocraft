@@ -1,5 +1,4 @@
 #include "Header.h"
-
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <iostream>
@@ -18,6 +17,7 @@
 #include <condition_variable>
 
 #pragma comment(lib, "wininet.lib")
+
 
 using json = nlohmann::json;
 json data;
@@ -42,6 +42,76 @@ std::string jsonStrSnapshot;
 std::string jsonStrRelease;
 
 std::string urlManifest = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
+
+
+class MinecraftServer {
+public:
+    MinecraftServer()
+        : m_serverProcess(nullptr), m_workingDirectory(""), m_xms(""), m_xmx(""), m_serverJarName("") {}
+
+    bool StartServer() {
+        std::string command = "cd " + m_workingDirectory + " && java " + m_xms + " " + m_xmx + " -jar " + m_serverJarName + " nogui";
+        m_serverProcess = _popen(command.c_str(), "w");
+        return m_serverProcess != nullptr;
+    }
+
+    void StopServer() {
+        if (m_serverProcess) {
+            fprintf(m_serverProcess, "stop\n");
+            fflush(m_serverProcess);
+            _pclose(m_serverProcess);
+            m_serverProcess = nullptr;
+        }
+    }
+
+    bool IsServerRunning() const {
+        return m_serverProcess != nullptr;
+    }
+
+    void SendCommand(const std::string& command) {
+        if (m_serverProcess) {
+            fprintf(m_serverProcess, "%s\n", command.c_str());
+            fflush(m_serverProcess);
+        }
+    }
+
+    std::string ReadOutput() {
+        std::string output;
+        if (m_serverProcess) {
+            char buffer[256];
+            while (fgets(buffer, sizeof(buffer), m_serverProcess)) {
+                output += buffer;
+            }
+        }
+        return output;
+    }
+
+    void SetWorkingDirectory(const std::string& workingDirectory) {
+        m_workingDirectory = workingDirectory;
+    }
+
+    void SetXms(const std::string& xms) {
+        m_xms = "-Xms" + xms;
+    }
+
+    void SetXmx(const std::string& xmx) {
+        m_xmx = "-Xmx" + xmx;
+    }
+
+    void SetServerJarName(const std::string& serverJarName) {
+        m_serverJarName = serverJarName;
+    }
+
+private:
+    FILE* m_serverProcess;
+    std::string m_workingDirectory;
+    std::string m_xms;
+    std::string m_xmx;
+    std::string m_serverJarName;
+};
+
+MinecraftServer server;
+
 
 std::string GetWebPageContent(const std::string& url) {
     std::string content;
@@ -184,12 +254,6 @@ std::map<std::string, std::string> LoadConfig(const std::string& filename) {
     if (configData.find("server_name") == configData.end()) {
         configData["server_name"] = "AutoCraft";
     }
-    if (configData.find("rcon_port") == configData.end()) {
-        configData["rcon_port"] = "25575";
-    }
-    if (configData.find("rcon_password") == configData.end()) {
-        configData["rcon_password"] = "rcon_25575";
-    }
 
     return configData;
 }
@@ -267,6 +331,9 @@ void renameFileIfExists(const std::string& filename) {
     }
 }
 
+
+bool isRunning = true;
+
 // Funkce pro smyèku hlavního vlákna
 void MainLoop() {
     while (true) {
@@ -282,12 +349,20 @@ void MainLoop() {
             snapshotVersion = data["latest"]["snapshot"];
             releaseVersion = data["latest"]["release"];
 
+            configData.clear();
+            configData = LoadConfig(configFilename);
+
             if (configData["snapshot_version"] == snapshotVersion)
             {
                 std::cout << "Snapshot is current (" << snapshotVersion << ")" << std::endl;
             }
             else
             {
+                if (server.IsServerRunning())
+                {
+                    std::cout << "\nStopping the server for the purpose of downloading a new version\n";
+                    server.StopServer();
+                }
                 std::cout << "New version of Snapshot detected (" << snapshotVersion << ")" << std::endl;
                 searchId = snapshotVersion;
                 searchType = "snapshot";
@@ -320,6 +395,11 @@ void MainLoop() {
             }
             else
             {
+                if (server.IsServerRunning())
+                {
+                    std::cout << "\nStopping the server for the purpose of downloading a new version\n";
+                    server.StopServer();
+                }
                 std::cout << "New version of Release detected (" << releaseVersion << ")" << std::endl;
                 searchId = releaseVersion;
                 searchType = "release";
@@ -346,14 +426,12 @@ void MainLoop() {
                 }
             }
 
-            if (configData["run_server"] == "true")
+            if (configData["run_server"] == "true" && !server.IsServerRunning() && isRunning )
             {
                 std::string cmd = "";
                 std::string rnd = generateRandomNumber(10, -999999999, 999999999);
                 std::string nam = "";
-                std::string rcon_port = configData["rcon_port"];
-                std::string rcon_pass = configData["rcon_password"];
-                std::cout << "Automatic execution of the """ << configData["type_server"] << """ version is currently in progress." << std::endl;
+                std::cout << "\nAutomatic execution of the """ << configData["type_server"] << """ version is currently in progress.\n" << std::endl;
                 if (configData["type_server"] == "snapshot")
                 {
                     nam = "\u00a7f" + configData["server_name"] + "\u00a78 - \u00a77 Snapshot server\u00a7f " + snapshotVersion;
@@ -369,7 +447,7 @@ void MainLoop() {
                             "#Created automatically by Autocraft.\n"
                             "#Please modify these values to your own.\n"
                             "enable-jmx-monitoring=false\n"
-                            "rcon.port=" + rcon_port + "\n"
+                            "rcon.port=27575\n"
                             "level-seed=" + rnd + "\n"
                             "gamemode=survival\n"
                             "enable-command-block=false\n"
@@ -398,7 +476,7 @@ void MainLoop() {
                             "resource-pack-prompt=\n"
                             "allow-nether=true\n"
                             "server-port=25565\n"
-                            "enable-rcon=true\n"
+                            "enable-rcon=false\n"
                             "sync-chunk-writes=true\n"
                             "op-permission-level=4\n"
                             "prevent-proxy-connections=false\n"
@@ -406,7 +484,7 @@ void MainLoop() {
                             "resource-pack=\n"
                             "entity-broadcast-range-percentage=100\n"
                             "simulation-distance=10\n"
-                            "rcon.password=" + rcon_pass + "\n"
+                            "rcon.password=\n"
                             "player-idle-timeout=0\n"
                             "force-gamemode=false\n"
                             "rate-limit=0\n"
@@ -426,7 +504,11 @@ void MainLoop() {
                             "max-world-size=29999984"
                         );
                     }
-
+                    server.SetWorkingDirectory("snapshot");
+                    server.SetServerJarName(snapshotVersion+".jar");
+                    server.SetXms(configData["xms"]);
+                    server.SetXmx(configData["xmx"]);
+                    server.StartServer();
                 }
                 else
                 {
@@ -443,7 +525,7 @@ void MainLoop() {
                             "#Created automatically by Autocraft.\n"
                             "#Please modify these values to your own.\n"
                             "enable-jmx-monitoring=false\n"
-                            "rcon.port=" + rcon_port + "\n"
+                            "rcon.port=27575\n"
                             "level-seed=" + rnd + "\n"
                             "gamemode=survival\n"
                             "enable-command-block=false\n"
@@ -472,7 +554,7 @@ void MainLoop() {
                             "resource-pack-prompt=\n"
                             "allow-nether=true\n"
                             "server-port=25565\n"
-                            "enable-rcon=true\n"
+                            "enable-rcon=false\n"
                             "sync-chunk-writes=true\n"
                             "op-permission-level=4\n"
                             "prevent-proxy-connections=false\n"
@@ -480,7 +562,7 @@ void MainLoop() {
                             "resource-pack=\n"
                             "entity-broadcast-range-percentage=100\n"
                             "simulation-distance=10\n"
-                            "rcon.password=" + rcon_pass + "\n"
+                            "rcon.password=\n"
                             "player-idle-timeout=0\n"
                             "force-gamemode=false\n"
                             "rate-limit=0\n"
@@ -500,13 +582,13 @@ void MainLoop() {
                             "max-world-size=29999984"
                         );
                     }
+                    server.SetWorkingDirectory("release");
+                    server.SetServerJarName(releaseVersion + ".jar");
+                    server.SetXms(configData["xms"]);
+                    server.SetXmx(configData["xmx"]);
+                    server.StartServer();
                 }
             }
-
-            //system(cmd.c_str());
-
-
-
         }
         else
         {
@@ -536,14 +618,42 @@ void ConsoleLoop() {
             std::lock_guard<std::mutex> lock(g_consoleMutex);
             // Zde mùžete provést akce na základì uživatelského vstupu
             // Napøíklad ovládat druhou konzoli nebo ukonèit program
-            if (command == "exit" || command == "quit") {
-                // Ukonèení programu
+            if (command == "exit") 
+            {
+                server.StopServer();
                 g_exitSignal.notify_all();
                 return;
             }
-            else {
-                // Zde mùžete provést další akce na základì uživatelského vstupu
-                // Napøíklad ovládat druhou konzoli
+            else if (command == "stop")
+            {
+                if (server.IsServerRunning())
+                {
+                    std::cout << "\nStop server!\n";
+                    isRunning = false;
+                    server.StopServer();
+                }
+                else
+                {
+                    std::cout << "\nServer NOT running!!\n";
+                }
+                continue;
+            }
+            else if (command == "start")
+            {
+                if (server.IsServerRunning())
+                {
+                    std::cout << "\nThe server is running.\n";
+                }
+                else
+                {
+                    std::cout << "\nThe server start will occur during the next version check.\n";
+                    isRunning = true;
+                }
+                continue;
+            }
+            else 
+            {
+                server.SendCommand(command);
                 continue;
             }
         }
@@ -557,7 +667,10 @@ int main() {
     SaveConfig(configFilename, configData);
 
     std::cout << "AutoCraft v1.0-290523 (C) PROGMaxi software" << std::endl<<std::endl;
-    std::cout << "To exit, write the command \"exit\"" << std::endl;
+    std::cout << "To stop server and exit, write the command \"exit\"" << std::endl;
+    std::cout << "To stop server, write the command \"stop\"" << std::endl;
+    std::cout << "To run server, write the command \"start\"" << std::endl;
+    std::cout << "Other commands are being sent to the server." << std::endl;
     std::cout << "A new version will be checked every " << configData["timeout_second"]<< " second" << std::endl <<std::endl;
 
     // Spuštìní hlavního vlákna pro smyèku

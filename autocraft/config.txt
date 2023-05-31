@@ -1,0 +1,8 @@
+release_version = 1.19.4
+run_server = true
+server_name = AutoCraft
+snapshot_version = 1.20-pre7
+timeout_second = 15
+type_server = snapshot
+xms = 1G
+xmx = 4G
