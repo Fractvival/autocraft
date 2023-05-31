@@ -1,8 +1,0 @@
-release_version = none
-run_server = true
-server_name = AutoCraft
-snapshot_version = none
-timeout_second = 30
-type_server = snapshot
-xms = 1G
-xmx = 4G

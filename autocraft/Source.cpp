@@ -382,13 +382,42 @@ void renameFileIfExists(const std::string& filename)
     }
 }
 
+std::string getCurrentTimeAndDate(bool showTime, bool showDate) 
+{
+    std::time_t currentTime = std::time(nullptr);
+    std::tm* timeStructure = std::localtime(&currentTime);
+
+    std::string result;
+
+    if (showTime) 
+    {
+        char timeText[9];
+        std::strftime(timeText, sizeof(timeText), "%H:%M:%S", timeStructure);
+        result += timeText;
+    }
+
+    if (showTime && showDate) 
+    {
+        result += " ";
+    }
+
+    if (showDate) 
+    {
+        char dateText[11];
+        std::strftime(dateText, sizeof(dateText), "%d.%m.%Y", timeStructure);
+        result += dateText;
+    }
+
+    return result;
+}
+
 bool isRunning = true;
 
 void MainLoop() 
 {
     while (true) 
     {
-        std::cout << "A check is in progress..." << std::endl;
+        std::cout << "[" << getCurrentTimeAndDate(true, false) << "] A check is in progress..." << std::endl;
         jsonStr = "";
         std::string jsonStr = GetWebPageContent(urlManifest);
         if (!jsonStr.empty())
@@ -406,6 +435,9 @@ void MainLoop()
             {
                 if (server.IsServerRunning())
                 {
+                    server.SendCommand("say A new version has just been released ("+snapshotVersion+")");
+                    server.SendCommand("say Server will be stopped and updated in 30 seconds");
+                    Sleep(30000);
                     std::cout << "\nStopping the server for the purpose of downloading a new version\n";
                     server.StopServer();
                 }
@@ -445,6 +477,9 @@ void MainLoop()
             {
                 if (server.IsServerRunning())
                 {
+                    server.SendCommand("say A new version has just been released (" + releaseVersion + ")");
+                    server.SendCommand("say Server will be stopped and updated in 30 seconds");
+                    Sleep(30000);
                     std::cout << "\nStopping the server for the purpose of downloading a new version\n";
                     server.StopServer();
                 }
@@ -484,7 +519,7 @@ void MainLoop()
                 std::cout << "\nAutomatic execution of the """ << configData["type_server"] << """ version is currently in progress.\n" << std::endl;
                 if (configData["type_server"] == "snapshot")
                 {
-                    nam = "\u00a7f" + configData["server_name"] + "\u00a78-\u00a77Snapshot server " + snapshotVersion;
+                    nam = "\u00a72" + configData["server_name"] + " \u00a77snapshot server\u00a77\u00a7l " + snapshotVersion;
                     cmd = "cd snapshot && java -Xms"+configData["xms"]+" -Xmx"+configData["xmx"]+" -jar "+snapshotVersion+".jar nogui";
                     if (!fileExists("snapshot\\eula.txt"))
                     {
@@ -505,7 +540,7 @@ void MainLoop()
                             "generator-settings={}\n"
                             "enforce-secure-profile=true\n"
                             "level-name=world\n"
-                            "motd=" + nam + "\n"
+                            "motd=" +nam+ "\n"
                             "query.port=25565\n"
                             "pvp=true\n"
                             "generate-structures=true\n"
@@ -562,7 +597,7 @@ void MainLoop()
                 }
                 else
                 {
-                    nam = "\u00a7f" + configData["server_name"] + "\u00a78-\u00a77Release server " + releaseVersion;
+                    nam = "\u00a72"+configData["server_name"] + " \u00a77release server\u00a77\u00a7l " + releaseVersion;
                     cmd = "cd release && java -Xms" + configData["xms"] + " -Xmx" + configData["xmx"] + " -jar " + releaseVersion + ".jar nogui";
                     if (!fileExists("release\\eula.txt"))
                     {
