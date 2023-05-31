@@ -382,42 +382,25 @@ void renameFileIfExists(const std::string& filename)
     }
 }
 
-std::string getCurrentTimeAndDate(bool showTime, bool showDate) 
-{
+void getTime(std::string& timeString) {
     std::time_t currentTime = std::time(nullptr);
-    std::tm* timeStructure = std::localtime(&currentTime);
+    std::tm* localTime = std::localtime(&currentTime);
 
-    std::string result;
+    char timeText[9];
+    std::strftime(timeText, sizeof(timeText), "%H:%M:%S", localTime);
 
-    if (showTime) 
-    {
-        char timeText[9];
-        std::strftime(timeText, sizeof(timeText), "%H:%M:%S", timeStructure);
-        result += timeText;
-    }
-
-    if (showTime && showDate) 
-    {
-        result += " ";
-    }
-
-    if (showDate) 
-    {
-        char dateText[11];
-        std::strftime(dateText, sizeof(dateText), "%d.%m.%Y", timeStructure);
-        result += dateText;
-    }
-
-    return result;
+    timeString = timeText;
 }
 
 bool isRunning = true;
+std::string currentTime = "";
 
 void MainLoop() 
 {
     while (true) 
     {
-        std::cout << "[" << getCurrentTimeAndDate(true, false) << "] A check is in progress..." << std::endl;
+        getTime(currentTime);
+        std::cout << "[" << currentTime << "] A check is in progress..." << std::endl;
         jsonStr = "";
         std::string jsonStr = GetWebPageContent(urlManifest);
         if (!jsonStr.empty())
