@@ -5,12 +5,14 @@
 #include <iostream>
 #include <string.h>
 #include <Windows.h>
+#include <shellapi.h>
 #include <wininet.h>
 #include <filesystem>
 #include <fstream>
 #include <map>
 #include <chrono>
 #include <thread>
+#include <random>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <condition_variable>
@@ -21,6 +23,7 @@ using json = nlohmann::json;
 json data;
 json dataSnapshot;
 json dataRelease;
+
 
 std::string configFilename = "config.txt";
 std::map<std::string, std::string> configData;
@@ -166,6 +169,27 @@ std::map<std::string, std::string> LoadConfig(const std::string& filename) {
     if (configData.find("timeout_second") == configData.end()) {
         configData["timeout_second"] = "15";
     }
+    if (configData.find("run_server") == configData.end()) {
+        configData["run_server"] = "true";
+    }
+    if (configData.find("type_server") == configData.end()) {
+        configData["type_server"] = "snapshot";
+    }
+    if (configData.find("xms") == configData.end()) {
+        configData["xms"] = "1G";
+    }
+    if (configData.find("xmx") == configData.end()) {
+        configData["xmx"] = "4G";
+    }
+    if (configData.find("server_name") == configData.end()) {
+        configData["server_name"] = "AutoCraft";
+    }
+    if (configData.find("rcon_port") == configData.end()) {
+        configData["rcon_port"] = "25575";
+    }
+    if (configData.find("rcon_password") == configData.end()) {
+        configData["rcon_password"] = "rcon_25575";
+    }
 
     return configData;
 }
@@ -187,6 +211,61 @@ void SaveConfig(const std::string& filename, const std::map<std::string, std::st
 }
 
 
+bool fileExists(const std::string& filename) {
+    std::ifstream file(filename.c_str());
+    return file.good();
+}
+
+
+void createAndWriteToFile(const std::string& filename, const std::string& text) {
+    try {
+        std::ofstream file(filename.c_str());
+        if (file.is_open()) {
+            file << text;
+            file.close();
+            std::cout << "A new file " << filename << " has been created." << std::endl;
+        }
+        else {
+            throw std::ofstream::failure("Failed to create the file "+filename);
+        }
+    }
+    catch (const std::ofstream::failure& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+}
+
+// Funkce pro generování náhodného èísla s urèeným poètem cifer a rozsahem
+std::string generateRandomNumber(int digits, int min, int max) {
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    std::uniform_int_distribution<int> distribution(min, max);
+
+    int factor = 1;
+    for (int i = 1; i < digits; ++i) {
+        factor *= 10;
+    }
+
+    int randomNumber = distribution(generator) * factor;
+    return std::to_string(randomNumber);
+}
+
+void renameFileIfExists(const std::string& filename) {
+    std::filesystem::path filePath(filename);
+    if (std::filesystem::exists(filePath)) {
+        std::filesystem::path newFilePath = filePath.parent_path() / ("__old_" + filePath.filename().string());
+        std::error_code ec;
+        std::filesystem::rename(filePath, newFilePath, ec);
+        if (!ec) {
+            std::cout << "The file " << filePath << " has been renamed to: " << newFilePath << std::endl;
+        }
+        else {
+            std::cout << "File " << filePath << " renaming failed. Error code: " << ec.value() << std::endl;
+        }
+    }
+    else {
+        std::cout << "The file " << filePath << " does not exist." << std::endl;
+    }
+}
 
 // Funkce pro smyèku hlavního vlákna
 void MainLoop() {
@@ -224,6 +303,8 @@ void MainLoop() {
                 if (GetFileAndSave(urlSnapshotDown, snapshotVersion, "snapshot"))
                 {
                     std::cout << "Success" << std::endl << std::endl;
+                    createAndWriteToFile("snapshot\\run.bat", "java -Xms" + configData["xms"] + " -Xmx" + configData["xmx"] + " -jar " + snapshotVersion + ".jar nogui");
+                    renameFileIfExists("snapshot\\" + configData["snapshot_version"] + ".jar");
                     configData["snapshot_version"] = snapshotVersion;
                     SaveConfig(configFilename, configData);
                 }
@@ -254,6 +335,8 @@ void MainLoop() {
                 if (GetFileAndSave(urlReleaseDown, releaseVersion, "release"))
                 {
                     std::cout << "Success" << std::endl << std::endl;
+                    createAndWriteToFile("release\\run.bat", "java -Xms" + configData["xms"] + " -Xmx" + configData["xmx"] + " -jar " + releaseVersion + ".jar nogui");
+                    renameFileIfExists("release\\" + configData["release_version"] + ".jar");
                     configData["release_version"] = releaseVersion;
                     SaveConfig(configFilename, configData);
                 }
@@ -262,6 +345,167 @@ void MainLoop() {
                     std::cout << "Failure!" << std::endl << std::endl;
                 }
             }
+
+            if (configData["run_server"] == "true")
+            {
+                std::string cmd = "";
+                std::string rnd = generateRandomNumber(10, -999999999, 999999999);
+                std::string nam = "";
+                std::string rcon_port = configData["rcon_port"];
+                std::string rcon_pass = configData["rcon_password"];
+                std::cout << "Automatic execution of the """ << configData["type_server"] << """ version is currently in progress." << std::endl;
+                if (configData["type_server"] == "snapshot")
+                {
+                    nam = "\u00a7f" + configData["server_name"] + "\u00a78 - \u00a77 Snapshot server\u00a7f " + snapshotVersion;
+                    cmd = "cd snapshot && java -Xms"+configData["xms"]+" -Xmx"+configData["xmx"]+" -jar "+snapshotVersion+".jar nogui";
+                    if (!fileExists("snapshot\\eula.txt"))
+                    {
+                        createAndWriteToFile("snapshot\\eula.txt", "#Confirmed automatically by Autocraft.\neula=true");
+                    }
+                    if (!fileExists("snapshot\\server.properties"))
+                    {
+                        createAndWriteToFile("snapshot\\server.properties",
+                            "#Minecraft server properties\n"
+                            "#Created automatically by Autocraft.\n"
+                            "#Please modify these values to your own.\n"
+                            "enable-jmx-monitoring=false\n"
+                            "rcon.port=" + rcon_port + "\n"
+                            "level-seed=" + rnd + "\n"
+                            "gamemode=survival\n"
+                            "enable-command-block=false\n"
+                            "enable-query=false\n"
+                            "generator-settings={}\n"
+                            "enforce-secure-profile=true\n"
+                            "level-name=world\n"
+                            "motd=" + nam + "\n"
+                            "query.port=25565\n"
+                            "pvp=true\n"
+                            "generate-structures=true\n"
+                            "max-chained-neighbor-updates=1000000\n"
+                            "difficulty=hard\n"
+                            "network-compression-threshold=256\n"
+                            "max-tick-time=60000\n"
+                            "require-resource-pack=false\n"
+                            "use-native-transport=true\n"
+                            "max-players=5\n"
+                            "online-mode=true\n"
+                            "enable-status=true\n"
+                            "allow-flight=false\n"
+                            "initial-disabled-packs=\n"
+                            "broadcast-rcon-to-ops=true\n"
+                            "view-distance=10\n"
+                            "server-ip=\n"
+                            "resource-pack-prompt=\n"
+                            "allow-nether=true\n"
+                            "server-port=25565\n"
+                            "enable-rcon=true\n"
+                            "sync-chunk-writes=true\n"
+                            "op-permission-level=4\n"
+                            "prevent-proxy-connections=false\n"
+                            "hide-online-players=false\n"
+                            "resource-pack=\n"
+                            "entity-broadcast-range-percentage=100\n"
+                            "simulation-distance=10\n"
+                            "rcon.password=" + rcon_pass + "\n"
+                            "player-idle-timeout=0\n"
+                            "force-gamemode=false\n"
+                            "rate-limit=0\n"
+                            "hardcore=false\n"
+                            "white-list=false\n"
+                            "broadcast-console-to-ops=true\n"
+                            "spawn-npcs=true\n"
+                            "spawn-animals=true\n"
+                            "function-permission-level=2\n"
+                            "initial-enabled-packs=vanilla\n"
+                            "level-type=minecraft\\:normal\n"
+                            "text-filtering-config=\n"
+                            "spawn-monsters=true\n"
+                            "enforce-whitelist=false\n"
+                            "spawn-protection=16\n"
+                            "resource-pack-sha1=\n"
+                            "max-world-size=29999984"
+                        );
+                    }
+
+                }
+                else
+                {
+                    nam = "\u00a7f" + configData["server_name"] + "\u00a78 - \u00a77 Release server\u00a7f " + releaseVersion;
+                    cmd = "cd release && java -Xms" + configData["xms"] + " -Xmx" + configData["xmx"] + " -jar " + releaseVersion + ".jar nogui";
+                    if (!fileExists("release\\eula.txt"))
+                    {
+                        createAndWriteToFile("release\\eula.txt", "#Confirmed automatically by Autocraft.\neula=true");
+                    }
+                    if (!fileExists("release\\server.properties"))
+                    {
+                        createAndWriteToFile("release\\server.properties",
+                            "#Minecraft server properties\n"
+                            "#Created automatically by Autocraft.\n"
+                            "#Please modify these values to your own.\n"
+                            "enable-jmx-monitoring=false\n"
+                            "rcon.port=" + rcon_port + "\n"
+                            "level-seed=" + rnd + "\n"
+                            "gamemode=survival\n"
+                            "enable-command-block=false\n"
+                            "enable-query=false\n"
+                            "generator-settings={}\n"
+                            "enforce-secure-profile=true\n"
+                            "level-name=world\n"
+                            "motd=" + nam + "\n"
+                            "query.port=25565\n"
+                            "pvp=true\n"
+                            "generate-structures=true\n"
+                            "max-chained-neighbor-updates=1000000\n"
+                            "difficulty=hard\n"
+                            "network-compression-threshold=256\n"
+                            "max-tick-time=60000\n"
+                            "require-resource-pack=false\n"
+                            "use-native-transport=true\n"
+                            "max-players=5\n"
+                            "online-mode=true\n"
+                            "enable-status=true\n"
+                            "allow-flight=false\n"
+                            "initial-disabled-packs=\n"
+                            "broadcast-rcon-to-ops=true\n"
+                            "view-distance=10\n"
+                            "server-ip=\n"
+                            "resource-pack-prompt=\n"
+                            "allow-nether=true\n"
+                            "server-port=25565\n"
+                            "enable-rcon=true\n"
+                            "sync-chunk-writes=true\n"
+                            "op-permission-level=4\n"
+                            "prevent-proxy-connections=false\n"
+                            "hide-online-players=false\n"
+                            "resource-pack=\n"
+                            "entity-broadcast-range-percentage=100\n"
+                            "simulation-distance=10\n"
+                            "rcon.password=" + rcon_pass + "\n"
+                            "player-idle-timeout=0\n"
+                            "force-gamemode=false\n"
+                            "rate-limit=0\n"
+                            "hardcore=false\n"
+                            "white-list=false\n"
+                            "broadcast-console-to-ops=true\n"
+                            "spawn-npcs=true\n"
+                            "spawn-animals=true\n"
+                            "function-permission-level=2\n"
+                            "initial-enabled-packs=vanilla\n"
+                            "level-type=minecraft\\:normal\n"
+                            "text-filtering-config=\n"
+                            "spawn-monsters=true\n"
+                            "enforce-whitelist=false\n"
+                            "spawn-protection=16\n"
+                            "resource-pack-sha1=\n"
+                            "max-world-size=29999984"
+                        );
+                    }
+                }
+            }
+
+            //system(cmd.c_str());
+
+
 
         }
         else
