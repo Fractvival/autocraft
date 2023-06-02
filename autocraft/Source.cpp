@@ -2,14 +2,13 @@
 // Autocraft
 // ---------
 // PROGMaxi software 2023
-// v1.0-290523
+// v1.0-020623
 // 
 // Use JSON lib nlohmann
 // https://github.com/nlohmann/json
 // 
 //////////////////////////////////////////////////////////////
 
-#include "Header.h"
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <iostream>
@@ -257,7 +256,7 @@ std::map<std::string, std::string> LoadConfig(const std::string& filename)
     }
     else 
     {
-        std::cout << "Failed to open configuration file." << std::endl;
+        //std::cout << "Failed to open configuration file." << std::endl;
     }
 
     if (configData.find("snapshot_version") == configData.end()) 
@@ -382,25 +381,27 @@ void renameFileIfExists(const std::string& filename)
     }
 }
 
-void getTime(std::string& timeString) {
-    std::time_t currentTime = std::time(nullptr);
-    std::tm* localTime = std::localtime(&currentTime);
 
-    char timeText[9];
-    std::strftime(timeText, sizeof(timeText), "%H:%M:%S", localTime);
-
-    timeString = timeText;
+std::string getCurrentTime() 
+{
+    auto now = std::chrono::system_clock::now();
+    std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
+    std::tm* timeinfo = std::localtime(&currentTime);
+    std::ostringstream oss;
+    oss << std::put_time(timeinfo, "%H:%M:%S");
+    return oss.str();
 }
+
 
 bool isRunning = true;
 std::string currentTime = "";
 
 void MainLoop() 
 {
-    while (true) 
+    std::cout << "\nThread MainLoop() starting...\n\n";
+    while (true)
     {
-        getTime(currentTime);
-        std::cout << "[" << currentTime << "] A check is in progress..." << std::endl;
+        std::cout << "[" << getCurrentTime() << "] A check is in progress..." << std::endl;
         jsonStr = "";
         std::string jsonStr = GetWebPageContent(urlManifest);
         if (!jsonStr.empty())
@@ -418,7 +419,7 @@ void MainLoop()
             {
                 if (server.IsServerRunning())
                 {
-                    server.SendCommand("say A new version has just been released ("+snapshotVersion+")");
+                    server.SendCommand("say A new version has just been released (" + snapshotVersion + ")");
                     server.SendCommand("say Server will be stopped and updated in 30 seconds");
                     Sleep(30000);
                     std::cout << "\nStopping the server for the purpose of downloading a new version\n";
@@ -427,9 +428,9 @@ void MainLoop()
                 std::cout << "New version of Snapshot detected (" << snapshotVersion << ")" << std::endl;
                 searchId = snapshotVersion;
                 searchType = "snapshot";
-                for (const auto& item : data["versions"]) 
+                for (const auto& item : data["versions"])
                 {
-                    if (item["id"] == searchId && item["type"] == searchType) 
+                    if (item["id"] == searchId && item["type"] == searchType)
                     {
                         urlSnapshotJson = item["url"];
                     }
@@ -469,9 +470,9 @@ void MainLoop()
                 std::cout << "New version of Release detected (" << releaseVersion << ")" << std::endl;
                 searchId = releaseVersion;
                 searchType = "release";
-                for (const auto& item : data["versions"]) 
+                for (const auto& item : data["versions"])
                 {
-                    if (item["id"] == searchId && item["type"] == searchType) 
+                    if (item["id"] == searchId && item["type"] == searchType)
                     {
                         urlReleaseJson = item["url"];
                     }
@@ -494,16 +495,16 @@ void MainLoop()
                 }
             }
 
-            if (configData["run_server"] == "true" && !server.IsServerRunning() && isRunning )
+            if (configData["run_server"] == "true" && !server.IsServerRunning() && isRunning)
             {
                 std::string cmd = "";
                 std::string rnd = generateRandomNumber(10, -999999999, 999999999);
                 std::string nam = "";
-                std::cout << "\nAutomatic execution of the """ << configData["type_server"] << """ version is currently in progress.\n" << std::endl;
+                std::cout << "\nAutomatic execution of the '" << configData["type_server"] << "' version is currently in progress.\n" << std::endl;
                 if (configData["type_server"] == "snapshot")
                 {
                     nam = "\u00a72" + configData["server_name"] + " \u00a77snapshot server\u00a77\u00a7l " + snapshotVersion;
-                    cmd = "cd snapshot && java -Xms"+configData["xms"]+" -Xmx"+configData["xmx"]+" -jar "+snapshotVersion+".jar nogui";
+                    cmd = "cd snapshot && java -Xms" + configData["xms"] + " -Xmx" + configData["xmx"] + " -jar " + snapshotVersion + ".jar nogui";
                     if (!fileExists("snapshot\\eula.txt"))
                     {
                         createAndWriteToFile("snapshot\\eula.txt", "#Confirmed automatically by Autocraft.\neula=true");
@@ -523,7 +524,7 @@ void MainLoop()
                             "generator-settings={}\n"
                             "enforce-secure-profile=true\n"
                             "level-name=world\n"
-                            "motd=" +nam+ "\n"
+                            "motd=" + nam + "\n"
                             "query.port=25565\n"
                             "pvp=true\n"
                             "generate-structures=true\n"
@@ -573,14 +574,14 @@ void MainLoop()
                         );
                     }
                     server.SetWorkingDirectory("snapshot");
-                    server.SetServerJarName(snapshotVersion+".jar");
+                    server.SetServerJarName(snapshotVersion + ".jar");
                     server.SetXms(configData["xms"]);
                     server.SetXmx(configData["xmx"]);
                     server.StartServer();
                 }
                 else
                 {
-                    nam = "\u00a72"+configData["server_name"] + " \u00a77release server\u00a77\u00a7l " + releaseVersion;
+                    nam = "\u00a72" + configData["server_name"] + " \u00a77release server\u00a77\u00a7l " + releaseVersion;
                     cmd = "cd release && java -Xms" + configData["xms"] + " -Xmx" + configData["xmx"] + " -jar " + releaseVersion + ".jar nogui";
                     if (!fileExists("release\\eula.txt"))
                     {
@@ -658,22 +659,54 @@ void MainLoop()
                 }
             }
         }
-        else
+        else 
         {
             std::cout << "Unable to load JSON file! Check your internet connection." << std::endl;
         }
+
+        std::unique_lock<std::mutex> lock(g_consoleMutex);
+        int timeoutSeconds = 0;
+        try 
         {
-            std::unique_lock<std::mutex> lock(g_consoleMutex);
-            if (g_exitSignal.wait_for(lock, std::chrono::seconds(std::stoi(configData["timeout_second"]))) == std::cv_status::no_timeout) 
+            timeoutSeconds = std::stoi(configData["timeout_second"]);
+        }
+        catch (const std::invalid_argument& e) 
+        {
+            // Invalid input string (not an integer)
+            timeoutSeconds = 30;
+            std::cerr << "\nException std::out_of_range: " << e.what() << std::endl;
+        }
+        catch (const std::out_of_range& e) 
+        {
+            // The conversion exceeded the range of the data type
+            timeoutSeconds = 30;
+            std::cerr << "\nException std::out_of_range: " << e.what() << std::endl;
+        }
+        if (timeoutSeconds > 0) 
+        {
+            std::chrono::seconds timeout(timeoutSeconds);
+            if (g_exitSignal.wait_for(lock, timeout) == std::cv_status::no_timeout) 
             {
                 break;
             }
         }
+        else 
+        {
+            // Invalid timeoutSeconds value
+            if (g_exitSignal.wait_for(lock, std::chrono::seconds(30)) == std::cv_status::no_timeout)
+            {
+                break;
+            }
+        }
+
     }
+
+    std::cout << "\nThread MainLoop() ended...\n";
 }
 
 void ConsoleLoop() 
 {
+    std::cout << "\nThread ConsoleLoop() starting...\n\n";
     std::string command;
     while (true) 
     {
@@ -684,6 +717,7 @@ void ConsoleLoop()
             {
                 server.StopServer();
                 g_exitSignal.notify_all();
+                std::cout << "\nThread ConsoleLoop() ended...\n";
                 return;
             }
             else if (command == "stop")
@@ -720,15 +754,15 @@ void ConsoleLoop()
             }
         }
     }
+    std::cout << "\nThread ConsoleLoop() ended...\n";
 }
 
 int main() 
 {
-
     configData = LoadConfig(configFilename);
     SaveConfig(configFilename, configData);
 
-    std::cout << "AutoCraft v1.0-290523 (C) PROGMaxi software" << std::endl<<std::endl;
+    std::cout << "AutoCraft v1.0-020623 (C) PROGMaxi software" << std::endl<<std::endl;
     std::cout << "To stop server and exit, write the command \"exit\"" << std::endl;
     std::cout << "To stop server, write the command \"stop\"" << std::endl;
     std::cout << "To run server, write the command \"start\"" << std::endl;
@@ -741,6 +775,8 @@ int main()
 
     mainThread.join();
     consoleThread.join();
+
+    std::cout << "\n\nAutocraft has ended, you can now close this window.\n\n";
 
     return 0;
 }
