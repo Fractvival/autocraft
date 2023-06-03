@@ -8,7 +8,7 @@ Never miss the latest Minecraft release again!
 Do not forget to edit the config.txt file before starting and commissioning
 It is also advisable to adjust the server settings in the server.properties file according to your preferences
 
-!! It only works for Windows 10+11 (windows 7 is just fine)
+!! It only works for Windows 10+11 (Windows 7 can also be)
 
 !! Java must be installed before running
    (e.g.: https://adoptium.net/temurin/releases/)
