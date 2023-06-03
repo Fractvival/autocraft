@@ -12,3 +12,6 @@ It is also advisable to adjust the server settings in the server.properties file
 
 !! Java must be installed before running
    (e.g.: https://adoptium.net/temurin/releases/)
+   
+!! Microsoft Visual C++ Redistributable must be installed before running (latest version)
+   
