@@ -393,13 +393,14 @@ std::string getCurrentTime()
 }
 
 
-bool isRunning = true;
-std::string currentTime = "";
+//std::string currentTime = "";
+std::atomic<bool> stopFlag(false);
+
 
 void MainLoop() 
 {
     std::cout << "\nThread MainLoop() starting...\n\n";
-    while (true)
+    while (!stopFlag)
     {
         std::cout << "[" << getCurrentTime() << "] A check is in progress..." << std::endl;
         jsonStr = "";
@@ -495,7 +496,7 @@ void MainLoop()
                 }
             }
 
-            if (configData["run_server"] == "true" && !server.IsServerRunning() && isRunning)
+            if (configData["run_server"] == "true" && !server.IsServerRunning())
             {
                 std::string cmd = "";
                 std::string rnd = generateRandomNumber(10, -999999999, 999999999);
@@ -664,7 +665,6 @@ void MainLoop()
             std::cout << "Unable to load JSON file! Check your internet connection." << std::endl;
         }
 
-        std::unique_lock<std::mutex> lock(g_consoleMutex);
         int timeoutSeconds = 0;
         try 
         {
@@ -684,25 +684,36 @@ void MainLoop()
         }
         if (timeoutSeconds > 0) 
         {
-            std::chrono::seconds timeout(timeoutSeconds);
-            if (g_exitSignal.wait_for(lock, timeout) == std::cv_status::no_timeout) 
+            int deltaTime = timeoutSeconds;
+            bool deltaEnd = false;
+            while (!stopFlag && !deltaEnd)
             {
-                break;
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                deltaTime--;
+                if (deltaTime <= 0)
+                    deltaEnd = true;
             }
         }
         else 
         {
-            // Invalid timeoutSeconds value
-            if (g_exitSignal.wait_for(lock, std::chrono::seconds(30)) == std::cv_status::no_timeout)
+            int deltaTime = 30;
+            bool deltaEnd = false;
+            while (!stopFlag && !deltaEnd)
             {
-                break;
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                deltaTime--;
+                if (deltaTime <= 0)
+                    deltaEnd = true;
             }
         }
 
     }
-
     std::cout << "\nThread MainLoop() ended...\n";
 }
+
+std::thread mainThread;
+std::thread consoleThread;
+
 
 void ConsoleLoop() 
 {
@@ -715,8 +726,8 @@ void ConsoleLoop()
             std::lock_guard<std::mutex> lock(g_consoleMutex);
             if (command == "exit") 
             {
+                stopFlag = true;
                 server.StopServer();
-                g_exitSignal.notify_all();
                 std::cout << "\nThread ConsoleLoop() ended...\n";
                 return;
             }
@@ -725,8 +736,11 @@ void ConsoleLoop()
                 if (server.IsServerRunning())
                 {
                     std::cout << "\nStop server!\n";
-                    isRunning = false;
+                    stopFlag = true;
                     server.StopServer();
+                    if (mainThread.joinable())
+                        mainThread.join();
+                    std::cout << "\nFor starting server and monitoring versions, type 'start' command!\n";
                 }
                 else
                 {
@@ -742,20 +756,25 @@ void ConsoleLoop()
                 }
                 else
                 {
-                    std::cout << "\nThe server start will occur during the next version check.\n";
-                    isRunning = true;
+                    stopFlag = false;
+                    std::cout << "\nServer start command.\n";
+                    mainThread = std::thread(MainLoop);
                 }
                 continue;
             }
             else 
             {
-                server.SendCommand(command);
+                if (server.IsServerRunning())
+                {
+                    server.SendCommand(command);
+                }
                 continue;
             }
         }
     }
     std::cout << "\nThread ConsoleLoop() ended...\n";
 }
+
 
 int main() 
 {
@@ -769,9 +788,8 @@ int main()
     std::cout << "Other commands are being sent to the server." << std::endl;
     std::cout << "A new version will be checked every " << configData["timeout_second"]<< " second" << std::endl <<std::endl;
 
-    std::thread mainThread(MainLoop);
-
-    std::thread consoleThread(ConsoleLoop);
+    mainThread = std::thread(MainLoop);
+    consoleThread = std::thread(ConsoleLoop);
 
     mainThread.join();
     consoleThread.join();
