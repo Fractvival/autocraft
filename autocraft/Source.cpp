@@ -408,8 +408,45 @@ void MainLoop()
         if (!jsonStr.empty())
         {
             data = json::parse(jsonStr);
-            snapshotVersion = data["latest"]["snapshot"];
-            releaseVersion = data["latest"]["release"];
+            //snapshotVersion = data["latest"]["snapshot"];
+            //releaseVersion = data["latest"]["release"];
+
+            for (const auto& item : data.items())
+            {
+                if (item.key() == "versions")
+                {
+                    for (const auto& version : item.value())
+                    {
+                        std::string id = version["id"];
+                        std::string type = version["type"];
+
+                        if (type == "release")
+                        {
+                            releaseVersion = id;
+                            break; // Ukonèíme prohledávání, protože jsme našli verzi "release"
+                        }
+                    }
+                }
+            }
+
+            for (const auto& item : data.items())
+            {
+                if (item.key() == "versions")
+                {
+                    for (const auto& version : item.value())
+                    {
+                        std::string id = version["id"];
+                        std::string type = version["type"];
+
+                        if (type == "snapshot")
+                        {
+                            snapshotVersion = id;
+                            break; // Ukonèíme prohledávání, protože jsme našli verzi "snapshot"
+                        }
+                    }
+                }
+            }
+
             configData.clear();
             configData = LoadConfig(configFilename);
             if (configData["snapshot_version"] == snapshotVersion)
