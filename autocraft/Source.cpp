@@ -423,7 +423,7 @@ void MainLoop()
                         if (type == "release")
                         {
                             releaseVersion = id;
-                            break; // Ukonèíme prohledávání, protože jsme našli verzi "release"
+                            break; // UkonÃ¨Ã­me prohledÃ¡vÃ¡nÃ­, protoÂže jsme naÂšli verzi "release"
                         }
                     }
                 }
@@ -441,7 +441,7 @@ void MainLoop()
                         if (type == "snapshot")
                         {
                             snapshotVersion = id;
-                            break; // Ukonèíme prohledávání, protože jsme našli verzi "snapshot"
+                            break; // UkonÃ¨Ã­me prohledÃ¡vÃ¡nÃ­, protoÂže jsme naÂšli verzi "snapshot"
                         }
                     }
                 }
@@ -818,7 +818,7 @@ int main()
     configData = LoadConfig(configFilename);
     SaveConfig(configFilename, configData);
 
-    std::cout << "AutoCraft v1.0-020623 (C) PROGMaxi software" << std::endl<<std::endl;
+    std::cout << "AutoCraft v1.0-150623 (C) PROGMaxi software" << std::endl<<std::endl;
     std::cout << "To stop server and exit, write the command \"exit\"" << std::endl;
     std::cout << "To stop server, write the command \"stop\"" << std::endl;
     std::cout << "To run server, write the command \"start\"" << std::endl;
